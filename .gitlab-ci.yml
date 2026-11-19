@@ -1,0 +1,21 @@
+clone_check:
+  stage: test
+  image: python:3.12-bookworm
+  variables:
+    GIT_DEPTH: "0"
+    PYTHONUTF8: "1"
+  resource_group: "clone-check-$CI_MERGE_REQUEST_IID"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_PROJECT_ID == $CI_MERGE_REQUEST_SOURCE_PROJECT_ID && $CI_PROJECT_ID == $CI_MERGE_REQUEST_PROJECT_ID'
+  script:
+    - python -m pip install -r ci/requirements-clone-check.txt
+    - |
+      head="${CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:-$CI_COMMIT_SHA}"
+      git fetch --no-tags origin "refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      target="$(git rev-parse FETCH_HEAD)"
+      python ci/clone_check.py --target "$target" --head "$head" > clone-check.md
+      cat clone-check.md
+      python ci/post_clone_check.py --head "$head" --target "$target" clone-check.md
+  artifacts:
+    paths:
+      - clone-check.md
